@@ -10,10 +10,10 @@ PASSWORD = 'secret'
 NODE_CAPACITY = 10
 
 # Number of ants
-ANT_COUNT = 5
+ANT_COUNT = 20
 
 # Tick period in seconds
-TICK_PERIOD = 1
+TICK_PERIOD = 0.5
 
 
 class AntDirection(Enum):

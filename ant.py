@@ -16,8 +16,6 @@ class Ant(spade.Agent.Agent):
             print 'Ant #{} is now in Forward state.'.format(self.myAgent.id)
 
         def _process(self):
-            # print 'Current node: {}'.format(self.myAgent.currNode.id + 1)
-
             self.chooseNextNode()
 
             if self.myAgent.isDestinationNode(self.myAgent.currNode):
@@ -36,44 +34,53 @@ class Ant(spade.Agent.Agent):
                 nextNode = link[0]
 
                 if nextNode.id == self.myAgent.destination:
-                    self.setNextNode(link)
-                    # if self.myAgent.nextNode.connectAnt(self.myAgent):
-                    #     self.myAgent.visitedNodes.append(nextNode)
-                    #     self.myAgent.path.append(link)
-                    #     self.myAgent.currNode = nextNode
-                    #     self.setNextNode(link)
-
-                    # TODO else count failed attempts MAX_TIMES and drop him if MAX_TIMES is hit
-
+                    self.setNextNode(self.weighted_choice([self.calculateProbabilities(link)]))
                     return
 
             # Take all links that haven't been visited yet
             for link in self.myAgent.currNode.links:
                 if link[0].id not in self.myAgent.visitedNodes:
-                    probableLink.append((link, 0))
+                    probableLink.append(self.calculateProbabilities(link))
 
-            # If every node is visited, take everything
+            # TODO Cycle detected, delete known data for cycle nodes and append them all as probable links
             if len(probableLink) == 0:
                 for link in self.myAgent.currNode.links:
-                    probableLink.append((link, 0))
+                    probableLink.append(self.calculateProbabilities(link))
 
-            # Calc probability and randomize next node
-            for i in xrange(len(probableLink)):
-                linkWeight = probableLink[i][0][1]
-                probability = (100 + self.alpha * (1 - 1 / linkWeight)) / (1 + self.alpha * (linkWeight - 1))
-                probableLink[i] = (probableLink[i][0], probability)
+            # Debug purposes
+            print '\nCurrent Node ({})'.format(self.myAgent.currNode.id + 1)
+            print 'Possible nodes:'
+
+            for el in probableLink:
+                print '\tNode ({}) - Goodness: {}%'.format(el[0][0].id + 1, el[1])
+
+            print '\n'
 
             # Randomize next node
             self.setNextNode(self.weighted_choice(probableLink))
 
             return
 
-        def setNextNode(self, link):
-            self.myAgent.visitedNodes.append(link[0].id)
-            self.myAgent.path.append(link)
-            self.myAgent.currNode = link[0]
+        def calculateProbabilities(self, link):
+            linkWeight = link[1]
+            tau = 0
+
+            for entry in self.myAgent.currNode.pheromoneTable.get(self.myAgent.destination):
+                if entry.link[0].id == link[0].id:
+                    tau = entry.probability
+
+            # Goodness formula
+            probability = (tau + self.alpha * (1 - 1 / linkWeight)) / (1 + self.alpha * (linkWeight - 1))
+
+            return link, probability
+
+        def setNextNode(self, entry):
+            self.myAgent.visitedNodes.append(entry[0][0].id)
+            self.myAgent.path.append(entry)
+            self.myAgent.currNode = entry[0][0]
 
         # Credit to: http://stackoverflow.com/a/4322940
+        # Returns 'link' and its 'goodness'
         def weighted_choice(self, choices):
             values, weights = zip(*choices)
             total = 0
@@ -86,28 +93,63 @@ class Ant(spade.Agent.Agent):
             x = random() * total
             i = bisect(cum_weights, x)
 
-            return values[i]
+            # Weights == goodness P'ijd
+            return values[i], weights[i]
 
     class BackwardState(spade.Behaviour.OneShotBehaviour):
         def onStart(self):
+            if self.myAgent.path[-1][0][0].id == self.myAgent.destination:
+                # Save path to results
+                route = ''
+
+                for i in xrange(len(self.myAgent.path)):
+                    route += str(self.myAgent.path[i][0][0].id + 1)
+
+                    if i < len(self.myAgent.path) - 1:
+                        route += ' -> '
+
+                self.myAgent.results.updateRoutes(route)
+
             print 'Ant #{} is now in Backward state.'.format(self.myAgent.id)
             self.myAgent.direction = globals.AntDirection.BACKWARD_ANT
 
         def _process(self):
-            print 'Ant #{}\nPath: ({})'.format(self.myAgent.id, len(self.myAgent.path))
+            # Debug purposes
+            # print 'Ant #{} path size: ({})'.format(self.myAgent.id, len(self.myAgent.path))
+            #
+            # for pathElem in self.myAgent.path:
+            #     print '({}, {})'.format(pathElem[0][0].id + 1, pathElem[1]),
+            #
+            #     if pathElem[0][0].id != self.myAgent.path[-1][0][0].id:
+            #         print '->',
+            #
+            # print '\n'
 
-            for path in self.myAgent.path:
-                print '{} ->'.format(path[0].id + 1),
+            if len(self.myAgent.path) > 1:
+                # The increment will be a function of the trip time experienced by the forward ant going from node k
+                # to destination node i
+                link, goodness = self.myAgent.path.pop()
 
-            print '\n'
+                self.myAgent.currNode = self.myAgent.path[-1][0][0]
+                self.myAgent.currNode.updatePheromoneTable(link[0].id, self.myAgent.destination, goodness)
+                self.myAgent.graph.update(self.myAgent.currNode)
 
-            if self.myAgent.isSourceNode(self.myAgent.currNode):
-                self.myAgent._kill()
+                self._exitcode = self.myAgent.TRANSITION_DEFAULT
             else:
-                self.myAgent._kill()
-                # self._exitcode = self.myAgent.TRANSITION_DEFAULT
+                self._exitcode = self.myAgent.TRANSITION_TO_DEATH
 
             time.sleep(globals.TICK_PERIOD)
+
+    class DieState(spade.Behaviour.OneShotBehaviour):
+        def onStart(self):
+            # Display new pheromone table status
+            # self.myAgent.graph.printPheromoneStatus(self.myAgent.destination)
+
+            print 'Ant #{} dies.'.format(self.myAgent.id)
+            print self.myAgent.results.printRoutes()
+
+        def _process(self):
+            self.myAgent._kill()
 
     def isDestinationNode(self, node):
         return node.id == self.graph.nodes[self.destination].id
@@ -115,7 +157,7 @@ class Ant(spade.Agent.Agent):
     def isSourceNode(self, node):
         return node.id == self.graph.nodes[self.source].id
 
-    def __init__(self, agentjid, password, id, graph, direction, source, destination, resource="spade", port=5222, debug=[], p2p=False):
+    def __init__(self, agentjid, password, id, graph, direction, source, destination, results,resource="spade", port=5222, debug=[], p2p=False):
         super(Ant, self).__init__(agentjid, password, resource, port, debug, p2p)
 
         self.id = id
@@ -137,22 +179,28 @@ class Ant(spade.Agent.Agent):
         # Used during algorithm steps to avoid visiting already visited nodes
         self.visitedNodes = [source]
 
-        # Path from source - destination and its cost in every step
-        self.path = [(graph.nodes[source], 0)]
+        # Path from source - destination and its cost & goodness in every step
+        self.path = [((graph.nodes[source], 0), 0.00)]  # Initial goodness set to 0.00 (inf)
+
+        self.results = results
 
     def _setup(self):
         self.STATE_BACKWARD_CODE = 0
         self.STATE_FORWARD_CODE = 1
+        self.STATE_DIE_CODE = 2
 
         self.TRANSITION_DEFAULT = 0
         self.TRANSITION_TO_BACKWARD = 10
+        self.TRANSITION_TO_DEATH = 20
 
         b = spade.Behaviour.FSMBehaviour()
         b.registerFirstState(self.ForwardState(), self.STATE_FORWARD_CODE)
-        b.registerLastState(self.BackwardState(), self.STATE_BACKWARD_CODE)
+        b.registerState(self.BackwardState(), self.STATE_BACKWARD_CODE)
+        b.registerLastState(self.DieState(), self.STATE_DIE_CODE)
 
         b.registerTransition(self.STATE_FORWARD_CODE, self.STATE_FORWARD_CODE, self.TRANSITION_DEFAULT)
-        b.registerTransition(self.STATE_BACKWARD_CODE, self.STATE_BACKWARD_CODE, self.TRANSITION_DEFAULT)
         b.registerTransition(self.STATE_FORWARD_CODE, self.STATE_BACKWARD_CODE, self.TRANSITION_TO_BACKWARD)
+        b.registerTransition(self.STATE_BACKWARD_CODE, self.STATE_BACKWARD_CODE, self.TRANSITION_DEFAULT)
+        b.registerTransition(self.STATE_BACKWARD_CODE, self.STATE_DIE_CODE, self.TRANSITION_TO_DEATH)
 
         self.addBehaviour(b, None)

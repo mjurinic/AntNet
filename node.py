@@ -18,17 +18,36 @@ class Node:
         self.antsInNode = self.PriorityQueue()
 
         # Pheromone table for neighbour nodes
-        self.pheromoneTable = []
+        self.pheromoneTable = {}
 
     # Storing Node instance
     def addLink(self, node, weight):
         self.links.append((node, weight))
 
-    def initPheromoneTable(self):
-        probability = 1.0 / len(self.links)
+    def initPheromoneTable(self, N):
+        for i in xrange(N):
+            for j in xrange(len(self.links)):
+                # Initially setting all pheromone values to 0.01
+                self.pheromoneTable.setdefault(i, []).append(self.TableEntry(self.links[j], 0.01))
 
-        for link in self.links:
-            self.pheromoneTable.append(self.TableEntry(link, probability))
+    # localDestination - the chosen neighbour
+    def updatePheromoneTable(self, localDestination, finalDestination, r):
+        # print 'LocalDest: {} FinalDest: {} r: {}'.format(localDestination + 1, finalDestination +1, r)
+        #
+        # print 'Before'
+        # for entry in self.pheromoneTable[finalDestination]:
+        #     print 'Node ({}) Probability: {}%'.format(entry.link[0].id + 1, entry.probability)
+
+        for i in xrange(len(self.pheromoneTable[finalDestination])):
+            entry = self.pheromoneTable[finalDestination][i]
+
+            if entry.link[0].id == localDestination:
+                self.pheromoneTable[finalDestination][i] = self.TableEntry(entry.link, entry.probability + r * (1 - entry.probability))
+                break
+
+        # print 'After'
+        # for entry in self.pheromoneTable[finalDestination]:
+        #     print 'Node ({}) Probability: {}%'.format(entry.link[0].id + 1, entry.probability)
 
     def connectAnt(self, ant):
         # TODO Should check if node is full...but lets keep it simple for now
