@@ -1,3 +1,5 @@
+from prettytable import PrettyTable
+
 import node
 
 
@@ -29,15 +31,18 @@ class Graph:
     def update(self, node):
         for i in xrange(len(self.nodes)):
             if self.nodes[i].id == node.id:
-                print 'Updating node ({})'.format(node.id + 1)
+                # print 'Updating node ({})'.format(node.id + 1)
                 self.nodes[i] = node
 
     def printPheromoneStatus(self, destination):
         for node in self.nodes:
-            print "\nId: {}".format(node.id + 1)
-            print "Links: "
+            t = PrettyTable(['i', 'j', 'd', 'goodness'])
+
+            print "\nNode: {}".format(node.id + 1)
 
             for entry in node.pheromoneTable[destination]:
-                print "    Id: {}  Goodness: {}".format(entry.link[0].id + 1, entry.probability)
+                t.add_row([node.id + 1, entry.link[0].id + 1, destination, entry.probability])
+
+            print t
 
         print '\n'

@@ -48,13 +48,13 @@ class Ant(spade.Agent.Agent):
                     probableLink.append(self.calculateProbabilities(link))
 
             # Debug purposes
-            print '\nCurrent Node ({})'.format(self.myAgent.currNode.id + 1)
-            print 'Possible nodes:'
-
-            for el in probableLink:
-                print '\tNode ({}) - Goodness: {}%'.format(el[0][0].id + 1, el[1])
-
-            print '\n'
+            # print '\nCurrent Node ({})'.format(self.myAgent.currNode.id + 1)
+            # print 'Possible nodes:'
+            # 
+            # for el in probableLink:
+            #     print '\tNode ({}) - Goodness: {}%'.format(el[0][0].id + 1, el[1])
+            #
+            # print '\n'
 
             # Randomize next node
             self.setNextNode(self.weighted_choice(probableLink))
@@ -75,6 +75,7 @@ class Ant(spade.Agent.Agent):
             return link, probability
 
         def setNextNode(self, entry):
+            self.myAgent.totalPathCost += entry[0][1]
             self.myAgent.visitedNodes.append(entry[0][0].id)
             self.myAgent.path.append(entry)
             self.myAgent.currNode = entry[0][0]
@@ -131,7 +132,9 @@ class Ant(spade.Agent.Agent):
                 link, goodness = self.myAgent.path.pop()
 
                 self.myAgent.currNode = self.myAgent.path[-1][0][0]
-                self.myAgent.currNode.updatePheromoneTable(link[0].id, self.myAgent.destination, goodness)
+                self.myAgent.currNode.updatePheromoneTable(link[0].id, self.myAgent.destination,
+                                            globals.PHEROMONE_RATE / float((self.myAgent.totalPathCost + link[1])))
+
                 self.myAgent.graph.update(self.myAgent.currNode)
 
                 self._exitcode = self.myAgent.TRANSITION_DEFAULT
@@ -143,7 +146,7 @@ class Ant(spade.Agent.Agent):
     class DieState(spade.Behaviour.OneShotBehaviour):
         def onStart(self):
             # Display new pheromone table status
-            # self.myAgent.graph.printPheromoneStatus(self.myAgent.destination)
+            self.myAgent.graph.printPheromoneStatus(self.myAgent.destination)
 
             print 'Ant #{} dies.'.format(self.myAgent.id)
             print self.myAgent.results.printRoutes()
@@ -161,6 +164,8 @@ class Ant(spade.Agent.Agent):
         super(Ant, self).__init__(agentjid, password, resource, port, debug, p2p)
 
         self.id = id
+
+        self.totalPathCost = 0
 
         # Graph instance containing nodes in the network
         # This instance is shared between all ants

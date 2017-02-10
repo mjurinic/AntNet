@@ -15,9 +15,10 @@ ANT_COUNT = 20
 # Tick period in seconds
 TICK_PERIOD = 0.5
 
+# Pheromone deployment rate
+PHEROMONE_RATE = 20
 
 class AntDirection(Enum):
     # 0 comes first in PQ
     BACKWARD_ANT = 0
     FORWARD_ANT = 1
-

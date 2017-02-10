@@ -32,22 +32,12 @@ class Node:
 
     # localDestination - the chosen neighbour
     def updatePheromoneTable(self, localDestination, finalDestination, r):
-        # print 'LocalDest: {} FinalDest: {} r: {}'.format(localDestination + 1, finalDestination +1, r)
-        #
-        # print 'Before'
-        # for entry in self.pheromoneTable[finalDestination]:
-        #     print 'Node ({}) Probability: {}%'.format(entry.link[0].id + 1, entry.probability)
-
         for i in xrange(len(self.pheromoneTable[finalDestination])):
             entry = self.pheromoneTable[finalDestination][i]
 
             if entry.link[0].id == localDestination:
                 self.pheromoneTable[finalDestination][i] = self.TableEntry(entry.link, entry.probability + r * (1 - entry.probability))
                 break
-
-        # print 'After'
-        # for entry in self.pheromoneTable[finalDestination]:
-        #     print 'Node ({}) Probability: {}%'.format(entry.link[0].id + 1, entry.probability)
 
     def connectAnt(self, ant):
         # TODO Should check if node is full...but lets keep it simple for now
